@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Outlook Recipient Warning</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f3f2f1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .dialog-box {
+      background: #ffffff;
+      border-radius: 4px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+      max-width: 480px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .dialog-header {
+      background: #d83b01;
+      color: #fff;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .dialog-header .icon {
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .dialog-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    .dialog-body {
+      padding: 24px 24px 20px;
+    }
+
+    .dialog-body p {
+      font-size: 14px;
+      color: #323130;
+      line-height: 1.6;
+      margin-bottom: 10px;
+    }
+
+    .recipient-list {
+      background: #fef0e7;
+      border-left: 4px solid #d83b01;
+      border-radius: 2px;
+      padding: 10px 14px;
+      margin: 14px 0;
+      font-size: 13px;
+      color: #a4262c;
+      font-weight: 600;
+      word-break: break-all;
+    }
+
+    .dialog-body .note {
+      font-size: 12px;
+      color: #605e5c;
+      margin-top: 6px;
+    }
+
+    .dialog-footer {
+      padding: 16px 24px 20px;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      border-top: 1px solid #edebe9;
+    }
+
+    button {
+      padding: 8px 20px;
+      font-size: 14px;
+      font-family: inherit;
+      border-radius: 2px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.15s;
+      border: 1px solid transparent;
+    }
+
+    #btn-yes {
+      background: #d83b01;
+      color: #fff;
+      border-color: #d83b01;
+    }
+    #btn-yes:hover { background: #b83000; }
+
+    #btn-no {
+      background: #fff;
+      color: #323130;
+      border-color: #8a8886;
+    }
+    #btn-no:hover { background: #f3f2f1; }
+
+    .spinner-wrap {
+      display: none;
+      text-align: center;
+      padding: 40px 20px;
+      color: #605e5c;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="dialog-box" id="main-dialog">
+  <div class="dialog-header">
+    <span class="icon">⚠️</span>
+    <h2>External Recipient Warning</h2>
+  </div>
+  <div class="dialog-body">
+    <p>You are about to send an email to the following <strong>flagged recipient(s)</strong>:</p>
+    <div class="recipient-list" id="flagged-list">Loading…</div>
+    <p>Please confirm that you intend to send this email to the above address(es).</p>
+    <p class="note">Pressing <strong>No</strong> will cancel the send so you can review your recipients.</p>
+  </div>
+  <div class="dialog-footer">
+    <button id="btn-no">No – Cancel Send</button>
+    <button id="btn-yes">Yes – Send Anyway</button>
+  </div>
+</div>
+
+<div class="spinner-wrap" id="spinner">Processing…</div>
+
+<script>
+  // Read flagged emails passed via URL query string
+  const params  = new URLSearchParams(window.location.search);
+  const flagged = params.get('flagged') ? decodeURIComponent(params.get('flagged')) : 'Unknown recipient';
+  document.getElementById('flagged-list').textContent = flagged;
+
+  document.getElementById('btn-yes').addEventListener('click', () => {
+    Office.context.ui.messageParent(JSON.stringify({ action: 'yes' }));
+  });
+
+  document.getElementById('btn-no').addEventListener('click', () => {
+    Office.context.ui.messageParent(JSON.stringify({ action: 'no' }));
+  });
+
+  Office.onReady(() => {
+    // UI ready — nothing extra needed, buttons handle messaging
+  });
+</script>
+</body>
+</html>
