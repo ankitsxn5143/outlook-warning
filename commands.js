@@ -1,75 +1,61 @@
 /*
   commands.js - Recipient Warning Add-in
-  Event-based activation handler for OnMessageSend (Smart Alerts)
+  ItemSend handler — compatible with Microsoft 365 Business Basic
 */
 
 // ─── CONFIGURATION ────────────────────────────────────────────────────────────
 const FLAGGED_ADDRESSES = [
   "ankit@bwesglobal.com",
-  // "another@example.com",  // add more here
+  // "another@example.com",
 ];
-const ADDIN_BASE_URL = "https://ankitsxn5143.github.io/outlook-warning";
 // ──────────────────────────────────────────────────────────────────────────────
 
-function onMessageSendHandler(event) {
+Office.initialize = function () {};
+
+function onItemSend(event) {
   const item = Office.context.mailbox.item;
+  let completed = false;
 
-  // Collect To, CC, BCC
-  const getRecips = (field) => new Promise((resolve) => {
-    if (!field) return resolve([]);
-    field.getAsync((result) => {
-      if (result.status === Office.AsyncResultStatus.Succeeded) {
-        resolve(result.value.map(r => (r.emailAddress || "").toLowerCase()).filter(Boolean));
-      } else {
-        resolve([]);
-      }
-    });
-  });
+  function finish(allow) {
+    if (completed) return;
+    completed = true;
+    if (!allow) {
+      item.notificationMessages.addAsync("flagged", {
+        type: Office.MailboxEnums.ItemNotificationMessageType.ErrorMessage,
+        message: "⚠️ Send blocked: This email contains a flagged recipient. Please review your recipients before sending.",
+      });
+    }
+    event.completed({ allowEvent: allow });
+  }
 
-  Promise.all([getRecips(item.to), getRecips(item.cc), getRecips(item.bcc)])
-    .then(([to, cc, bcc]) => {
-      const all = [...to, ...cc, ...bcc];
-      const flagged = all.filter(addr => FLAGGED_ADDRESSES.map(f => f.toLowerCase()).includes(addr));
+  // Safety timeout — must complete within 5 seconds or Outlook shows the warning
+  const timeout = setTimeout(() => finish(true), 4500);
 
-      if (flagged.length === 0) {
-        event.completed({ allowEvent: true });
-        return;
-      }
-
-      const flaggedParam = encodeURIComponent(flagged.join(", "));
-      const dialogUrl = `${ADDIN_BASE_URL}/warning.html?flagged=${flaggedParam}`;
-
-      Office.context.ui.displayDialogAsync(
-        dialogUrl,
-        { height: 40, width: 40, displayInIframe: false },
-        (asyncResult) => {
-          if (asyncResult.status === Office.AsyncResultStatus.Failed) {
-            console.error("Dialog failed to open:", asyncResult.error);
-            event.completed({ allowEvent: false });
-            return;
-          }
-
-          const dialog = asyncResult.value;
-
-          dialog.addEventHandler(Office.EventType.DialogMessageReceived, (msg) => {
-            dialog.close();
-            let choice = { action: "no" };
-            try { choice = JSON.parse(msg.message); } catch (e) {}
-            event.completed({ allowEvent: choice.action === "yes" });
-          });
-
-          dialog.addEventHandler(Office.EventType.DialogEventReceived, () => {
-            dialog.close();
-            event.completed({ allowEvent: false });
-          });
+  function getRecips(field) {
+    return new Promise((resolve) => {
+      if (!field) return resolve([]);
+      field.getAsync({ asyncContext: null }, (result) => {
+        if (result.status === Office.AsyncResultStatus.Succeeded) {
+          resolve(result.value.map(r => (r.emailAddress || "").toLowerCase()));
+        } else {
+          resolve([]);
         }
-      );
-    })
-    .catch((err) => {
-      console.error("Error in onMessageSendHandler:", err);
-      event.completed({ allowEvent: true });
+      });
     });
-}
+  }
 
-// CRITICAL: Must be called at top level for event-based activation
-Office.actions.associate("onMessageSendHandler", onMessageSendHandler);
+  Promise.all([
+    getRecips(item.to),
+    getRecips(item.cc),
+    getRecips(item.bcc),
+  ]).then(([to, cc, bcc]) => {
+    clearTimeout(timeout);
+    const all = [...to, ...cc, ...bcc];
+    const flaggedLower = FLAGGED_ADDRESSES.map(f => f.toLowerCase());
+    const found = all.some(addr => flaggedLower.includes(addr));
+    finish(!found); // block if found, allow if not
+  }).catch(() => {
+    clearTimeout(timeout);
+    finish(true); // fail open
+  });
+}
