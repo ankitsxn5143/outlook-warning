@@ -1,4 +1,4 @@
-var FLAGGED_ADDRESSES = ["ankit@bwesglobal.com"];
+var FLAGGED_ADDRESSES = ["performancedesk@bwesglobal.com"];
 
 console.log("[RecipientWarning] commands.js loaded");
 
